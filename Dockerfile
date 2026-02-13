@@ -3,7 +3,7 @@ FROM python:3.11-slim as builder
 
 WORKDIR /tmp
 COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 
 # Runtime stage
@@ -12,19 +12,22 @@ FROM python:3.11-slim
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PATH=/root/.local/bin:$PATH
+    PATH=/usr/local/bin:$PATH
 
 # Set working directory
 WORKDIR /app
 
-# Copy Python dependencies from builder
-COPY --from=builder /root/.local /root/.local
+
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+
+# Copy Python dependencies from builder (installed into /usr/local)
+COPY --from=builder /usr/local /usr/local
 
 # Copy application code
 COPY . .
 
 # Create non-root user for security
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+
 USER appuser
 
 # Expose port
