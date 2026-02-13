@@ -9,6 +9,7 @@ jobs:
   build-and-push:
     name: Build and push image
     runs-on: ubuntu-latest
+    environment: Dev
     outputs:
       image: ${{ steps.set-image.outputs.image }}
     steps:
