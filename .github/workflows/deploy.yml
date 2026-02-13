@@ -42,40 +42,40 @@ jobs:
           IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/gha-fastapi:${{ github.sha }}
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
-  deploy:
-    name: Deploy to EC2
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    environment: Dev
-    steps:
-      - name: Prepare SSH key
-        run: |
-          echo "${{ secrets.EC2_SSH_KEY }}" > /tmp/ec2_key
-          chmod 600 /tmp/ec2_key
+  # deploy:
+  #   name: Deploy to EC2
+  #   needs: build-and-push
+  #   runs-on: ubuntu-latest
+  #   environment: Dev
+  #   steps:
+  #     - name: Prepare SSH key
+  #       run: |
+  #         echo "${{ secrets.EC2_SSH_KEY }}" > /tmp/ec2_key
+  #         chmod 600 /tmp/ec2_key
 
-      - name: Deploy image on EC2
-        env:
-          IMAGE: ${{ needs.build-and-push.outputs.image }}
-        run: |
-          set -euo pipefail
-          REMOTE=${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}
-          # Pull image, replace container, and run with restart policy
-          ssh -o StrictHostKeyChecking=no -i /tmp/ec2_key "$REMOTE" \
-            "docker pull $IMAGE && \
-             docker stop gha-fastapi || true && \
-             docker rm gha-fastapi || true && \
-             docker run -d --name gha-fastapi -p 8000:8000 --restart=always $IMAGE"
+  #     - name: Deploy image on EC2
+  #       env:
+  #         IMAGE: ${{ needs.build-and-push.outputs.image }}
+  #       run: |
+  #         set -euo pipefail
+  #         REMOTE=${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}
+  #         # Pull image, replace container, and run with restart policy
+  #         ssh -o StrictHostKeyChecking=no -i /tmp/ec2_key "$REMOTE" \
+  #           "docker pull $IMAGE && \
+  #            docker stop gha-fastapi || true && \
+  #            docker rm gha-fastapi || true && \
+  #            docker run -d --name gha-fastapi -p 8000:8000 --restart=always $IMAGE"
 
-      - name: Remote health check
-        run: |
-          REMOTE=${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}
-          ssh -o StrictHostKeyChecking=no -i /tmp/ec2_key "$REMOTE" '
-            for i in 1 10; do
-              if curl -fsS http://localhost:8000/health; then
-                exit 0
-              fi
-              sleep 2
-            done
-            echo "Health check failed" >&2
-            exit 1
-          '
+  #     - name: Remote health check
+  #       run: |
+  #         REMOTE=${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}
+  #         ssh -o StrictHostKeyChecking=no -i /tmp/ec2_key "$REMOTE" '
+  #           for i in 1 10; do
+  #             if curl -fsS http://localhost:8000/health; then
+  #               exit 0
+  #             fi
+  #             sleep 2
+  #           done
+  #           echo "Health check failed" >&2
+  #           exit 1
+  #         '
