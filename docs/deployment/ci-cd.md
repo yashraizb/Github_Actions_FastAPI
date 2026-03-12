@@ -1,70 +1,43 @@
 # Deployment – CI/CD
 
-This project is CI/CD‑focused. the following example uses **GitHub Actions** but
-you can adapt it to other systems.
+This project uses **GitHub Actions** for automated CI/CD. The workflow builds a Docker image, pushes it to Docker Hub, and deploys to an EC2 instance.
 
 ## Workflow overview
 
-1. **Lint & test** on every push/pull request.
-2. **Build Docker image** and run smoke tests.
-3. **Push image** to registry on `main` (e.g. Docker Hub, GitHub Container Registry).
+1. **Build & push** Docker image on every push to `main`.
+2. **Deploy to EC2** via SSH, replacing the running container.
+3. **Health check** to verify deployment success.
 
-## Example `.github/workflows/ci.yml`
+The actual workflow is in [`.github/workflows/deploy.yml`](../../../.github/workflows/deploy.yml).
 
-```yaml
-name: CI
+## Key features
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
+- **Multi-arch builds** with QEMU and Buildx for cross-platform support.
+- **Tagged images**: `latest` and SHA-based tags for versioning.
+- **SSH deployment** to EC2 with container replacement and restart policy.
+- **Health verification** via `/health` endpoint with retries.
 
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with: python-version: '3.11'
-      - run: pip install -r requirements.txt black flake8
-      - run: black --check .
-      - run: flake8 app/
+## Secrets required
 
-  test:
-    needs: lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with: python-version: '3.11'
-      - run: pip install -r requirements.txt pytest
-      - run: pytest
+Set these in your repository secrets:
 
-  build-and-push:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v3
-      - uses: docker/build-push-action@v4
-        with:
-          push: true
-          tags: user-api:latest
-          # set registry/name via secrets or repo settings
-```
-
-> Store credentials in `secrets.DOCKER_USERNAME` and `secrets.DOCKER_PASSWORD`.
+- `DOCKERHUB_USERNAME` & `DOCKERHUB_TOKEN` for registry access.
+- `EC2_SSH_KEY`, `EC2_USER`, `EC2_HOST` for deployment.
 
 ## Local simulation
 
-You can mimic the pipeline by running the lint/test commands locally and
-building the Docker image. Use `act` or similar tools to run GitHub Actions
-offline.
+Test locally by running:
+
+```bash
+docker build -t gha-fastapi:test .
+docker run -p 8000:8000 gha-fastapi:test
+curl http://localhost:8000/health
+```
 
 ## Notes
 
-- Expand the workflow to publish releases, deploy to Kubernetes/ECS, etc.
-- Add unit/integration tests under `tests/` and update `pytest` step.
-- Keep secrets out of source control.
+- Uses `workflow_dispatch` for manual triggers.
+- Environment protection with `Dev` environment.
+- Automatic rollback on health check failure.
 
 > See [deployment/docker.md](docker.md) for container runtime details.
